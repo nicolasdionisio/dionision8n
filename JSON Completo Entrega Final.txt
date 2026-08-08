@@ -1,0 +1,978 @@
+JSON Completo Entrega Final 
+
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "67f1fed5-801a-4a16-8cfa-f1c7bcc4fa9f",
+      "name": "Carga manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Iqybp_y528Qr0iorWsYUjUEsWF541oc_JIbOotN-pVQ",
+          "mode": "list",
+          "cachedResultName": "Base de Leads - TEST ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Iqybp_y528Qr0iorWsYUjUEsWF541oc_JIbOotN-pVQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Iqybp_y528Qr0iorWsYUjUEsWF541oc_JIbOotN-pVQ/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "id": "85e5b1b7-c924-4e44-9e63-9bce6c80b691",
+      "name": "Leer leads (Google Sheets)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        256
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YC891YgpaF4QmKLE",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "3b55467d-aff1-44be-9b1b-84b2cc6772cd",
+      "name": "Cada dia",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const SENIOR = ['ceo','cto','coo','cfo','founder','owner','vp','vice president','head','director','chief','partner','president'];\n\n// <-- REEMPLAZAR por las keywords de tu ICP real\nconst TARGET_ICP = ['saas','software','fintech','technology','tech','ecommerce','e-commerce','marketing'];\n\nfunction normEmail(v){ return String(v||'').trim().toLowerCase(); }\nfunction normPhone(v){ return String(v||'').replace(/[^0-9+]/g,''); }\nfunction isEmail(v){ return /.+@.+\\..+/.test(v); }\nfunction isPhone(v){ return v.replace(/[^0-9]/g,'').length >= 8; }\nfunction num(v){ const n = parseInt(String(v||'').replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; }\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n\n  const email = normEmail(j.Email || j.email);\n  const phone = normPhone(j.Phone || j.phone);\n  const title = String(j.Job_tittle || j.title || '').toLowerCase();\n  const size = num(j.Quantity_Employees || j.company_size);\n\n  // Proxy de industria: busca las keywords del ICP en el nombre de empresa + URL\n  const industryText = `${(j.Company || '').toLowerCase()} ${(j['URL Company'] || '').toLowerCase()}`;\n  const matchesTargetIndustry = TARGET_ICP.some(k => industryText.includes(k));\n\n  const validEmail = isEmail(email);\n  const validPhone = isPhone(phone);\n\n  let pts = 0;\n  if (SENIOR.some(s => title.includes(s))) pts += 35; else if (title) pts += 10;\n  if (matchesTargetIndustry) pts += 25;\n  if (size >= 1000) pts += 20; else if (size >= 200) pts += 15; else if (size >= 50) pts += 8; else if (size > 0) pts += 3;\n  if (validEmail) pts += 12;\n  if (validPhone) pts += 8;\n\n  let score_rules = Math.max(0, Math.min(100, pts));\n  let segment_rules = score_rules >= 70 ? 'Caliente' : (score_rules >= 40 ? 'Tibio' : 'Frio');\n\n  out.push({\n    json: {\n      ...j,\n      name: j['Full Name'] || '',\n      company: j.Company || '',\n      title: j.Job_tittle || '',\n      email,\n      phone,\n      company_country: j.Company_Country || '',\n      company_size: size,\n      linkedin_url: j['URL LinkedIn'] || '',\n      company_url: j['URL Company'] || '',\n      industry_match: matchesTargetIndustry,\n      score_rules,\n      segment_rules,\n      valid_email: validEmail,\n      valid_phone: validPhone,\n      valid: validEmail\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "7069ab2e-643c-4f44-94ee-ff2bb4af679f",
+      "name": "Compute Rules Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "70c23f5f-117b-4527-99f0-ac78801473bf",
+      "name": "Lead valido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f2d03c8-270f-4653-8cb6-8f4516a6f4b2",
+              "leftValue": "={{ $json['Operator '] }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        256
+      ],
+      "id": "7bf14ea6-972c-400d-8811-114a25b27bdf",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1072,
+        -176
+      ],
+      "id": "076e2da2-2978-4dc4-b584-400290a55421",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appnXFXP67ca18EJE",
+          "mode": "list",
+          "cachedResultName": "Base de Prueba - B2Meets",
+          "cachedResultUrl": "https://airtable.com/appnXFXP67ca18EJE"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblM6dQgs28ub8luq",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appnXFXP67ca18EJE/tblM6dQgs28ub8luq"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.name }}",
+            "Status": "={{ $json.status }}",
+            "email": "={{ $json.email }}",
+            "Company": "={{ $json.company }}",
+            "Score": "={{ $json.score_rules }}",
+            "Segmento": "={{ $json.segment_rules }}",
+            "Company Size": "={{ $('Leer leads (Google Sheets)').item.json.Q_Employees }}",
+            "ID": "={{ $('Leer leads (Google Sheets)').item.json.ID }}",
+            "Canal Final ": "={{ $json.channel }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Company Size",
+              "displayName": "Company Size",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pendiente ",
+                  "value": "Pendiente "
+                },
+                {
+                  "name": "Procesado por IA",
+                  "value": "Procesado por IA"
+                },
+                {
+                  "name": "Aprobado por humano",
+                  "value": "Aprobado por humano"
+                },
+                {
+                  "name": "Invalido",
+                  "value": "Invalido"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Segmento",
+              "displayName": "Segmento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Canal Final ",
+              "displayName": "Canal Final ",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f19688c4-a555-453a-a0b1-c09d78d0f41c",
+      "name": "Upsert lead (Nuevo)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1888,
+        -16
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "6gLiAhbgibr4djM1",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 100
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1424,
+        160
+      ],
+      "id": "2440eef4-9a0a-495e-a002-90022d6d8903",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "lPHus567iZ0mOXJG",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "nicodionisio2@gmail.com",
+        "subject": "Proceso terminado ",
+        "emailType": "text",
+        "message": "Se procesó el lote de leads. Revisa la base de Airtable para aprobar los leads en estado 'Procesado por IA' antes del envío final.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1360,
+        -240
+      ],
+      "id": "5ec07d26-a4af-48a4-91a9-95829d57860c",
+      "name": "Send a message",
+      "webhookId": "cac11e08-c7ef-48c1-8365-45233600b11d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rIpXK44NgShEbHwx",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nconst items = $input.all();\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const json = item.json || {};\n  const rawOutput = json.output || '';\n\n  // Extraer el JSON que devolvió el Agente (channel, message, reasoning)\n  let parsedAI = {};\n  try {\n    const jsonMatch = rawOutput.match(/\\{[\\s\\S]*\\}/);\n    parsedAI = JSON.parse(jsonMatch ? jsonMatch[0] : rawOutput);\n  } catch (e) {\n    parsedAI = { channel: null, message: null, reasoning: rawOutput.trim() };\n  }\n\n  // pairedItem: recupera el lead correcto sin importar el batch size de Loop Over Items\n  const leadData = $('Loop Over Items').all()[item.pairedItem.item]?.json || {};\n\n  out.push({\n    json: {\n      // Identidad y contacto\n      id: leadData.id || '',\n      name: leadData['Full Name'] || '',\n      email: leadData.Email || '',\n      phone: leadData.Phone || '',\n      company: leadData.Company || '',\n      job_title: leadData.Job_tittle || '',\n      company_country: leadData.Company_Country || '',\n      company_size: leadData.Quantity_Employees || 0,\n      linkedin_url: leadData['URL LinkedIn'] || '',\n      company_url: leadData['URL Company'] || '',\n\n      // Scoring por reglas (JS)\n      score_rules: leadData.score_rules || 0,\n      segment_rules: leadData.segment_rules || 'Frio',\n\n      // Resultado del Agente IA — \n  email_subject: parsedAI.email_subject || '',\nemail_body: parsedAI.email_body || '',\nsales_note: parsedAI.sales_note || '',\n\n      // Estado de control\n      status: 'Procesado por IA'\n    }\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        -16
+      ],
+      "id": "e9d3e436-09a5-4480-a015-2cee42b9814f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sos un asistente de outreach B2B para [tu empresa]. Recibís los datos de un lead \ny su segmento ya calculado (Caliente / Tibio / Frio). No repitas ni justifiques el score.\n\nTu tarea:\n1. Redactá un asunto de email corto (menos de 8 palabras) y un cuerpo de email \n   de máximo 4 líneas, en el tono del manual de ventas adjunto, proponiendo \n   coordinar una reunión.\n2. Redactá una nota interna de una línea para el equipo de ventas explicando \n   por qué vale la pena un contacto personal (solo tiene sentido si el lead \n   es Caliente, pero generala siempre).\n\nDevolvé ÚNICAMENTE este JSON, sin texto adicional ni markdown:\n{\"email_subject\": \"...\", \"email_body\": \"...\", \"sales_note\": \"...\"}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1328,
+        -16
+      ],
+      "id": "4297ff79-44b9-4fe2-bb24-9115be137cae",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fields['Canal Final '] }}",
+                    "rightValue": "Caliente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7b72a45b-bcac-4b3f-af69-7ded6585eda2"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6dbd2b86-d6c3-4759-bd3b-573099cb57b9",
+                    "leftValue": "={{ $json.fields['Canal Final '] }}",
+                    "rightValue": "Tibio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "71d5d31a-f356-4ad0-b9bd-9448b1150fcc",
+                    "leftValue": "={{ $json.fields['Canal Final '] }}",
+                    "rightValue": "Frio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1984,
+        368
+      ],
+      "id": "b1fb522a-c21a-460c-8a10-a7913e893522",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $json.fields.email }}",
+        "subject": "=Tenes un minuto para hacer crecer tu negocio  {{ $json.fields.Name }} ?",
+        "message": "={{ $('Code in JavaScript').item.json.message_ia }}",
+        "responseType": "freeText",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2224,
+        560
+      ],
+      "id": "38721fc8-61c1-43d5-a05a-cdfb1ecd7ac8",
+      "name": "Send message and wait for response1",
+      "webhookId": "e0c835ec-4643-4e7e-bffb-41e5d61892c6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rIpXK44NgShEbHwx",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        2336,
+        208
+      ],
+      "id": "aa61eea5-6ad2-41d0-aa41-2cdb66cea319",
+      "name": "Send a message1",
+      "webhookId": "ee3a3340-c8da-4ee9-801a-91f7599c747c",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "agE0nkBPv3u3ztnt",
+          "name": "Slack account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.fields.Name }} respecto a la ultima charla que tuvimos en LinkedIn ",
+        "message": "={{ $('Code in JavaScript').item.json.message_ia }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2208,
+        368
+      ],
+      "id": "90275355-19a2-4d30-92e3-8847be0d5b1d",
+      "name": "Create a draft",
+      "webhookId": "f6d218ac-f353-44bf-8f9d-26e6fb687d32",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rIpXK44NgShEbHwx",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appnXFXP67ca18EJE",
+          "mode": "list",
+          "cachedResultName": "Base de Prueba - B2Meets",
+          "cachedResultUrl": "https://airtable.com/appnXFXP67ca18EJE"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblM6dQgs28ub8luq",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appnXFXP67ca18EJE/tblM6dQgs28ub8luq"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Leer leads (Google Sheets)').item.json.ID }}",
+            "ID": "={{ $('Leer leads (Google Sheets)').item.json.ID }}",
+            "Valid ": "={{ $json.valid }}",
+            "Name": "={{ $json.name }}",
+            "email": "={{ $json.email }}",
+            "Telephone": "={{ $json.phone }}",
+            "Company": "={{ $json.company }}",
+            "Company Size": "={{ $('Leer leads (Google Sheets)').item.json.Q_Employees }}",
+            "Status": "Invalido"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Valid ",
+              "displayName": "Valid ",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Company Size",
+              "displayName": "Company Size",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pendiente ",
+                  "value": "Pendiente "
+                },
+                {
+                  "name": "Procesado por IA",
+                  "value": "Procesado por IA"
+                },
+                {
+                  "name": "Aprobado por humano",
+                  "value": "Aprobado por humano"
+                },
+                {
+                  "name": "Invalido",
+                  "value": "Invalido"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Segmento",
+              "displayName": "Segmento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Canal Final ",
+              "displayName": "Canal Final ",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1088,
+        352
+      ],
+      "id": "0d65e132-201a-4863-be2c-831860065a90",
+      "name": "Create or update a record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "6gLiAhbgibr4djM1",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Carga manual": {
+      "main": [
+        [
+          {
+            "node": "Leer leads (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer leads (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada dia": {
+      "main": [
+        [
+          {
+            "node": "Leer leads (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Rules Score": {
+      "main": [
+        [
+          {
+            "node": "Lead valido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead valido?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create or update a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Compute Rules Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert lead (Nuevo)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Upsert lead (Nuevo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send message and wait for response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "848a29def78246583c6840760d459fa86f4f2284d513d06a8d8e9047a7544b08"
+  }
+}
