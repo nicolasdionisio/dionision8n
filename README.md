@@ -5,7 +5,7 @@ El repositorio contiene:
 2 imagenes del recorrido del work flowx 
 1 Video explicativo 
 1 PDF con la documentacion 
-1 Archivo txt que lo muestro a continuacion con el JSON del trabajo 
+1 Archivo txt que tambien lo muestro a continuacion con el JSON del trabajo 
 
 Entrega final JSON 
 
