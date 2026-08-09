@@ -1,6 +1,12 @@
 URL Dashboard en Sheets: 
-https://docs.google.com/spreadsheets/d/1BoAJrW-SGlWEUie8j5EN4c6mgeH7d8H16uOnYm4Pvbo/edit?usp=sharing
-En tiempo real se encuentran los interfaces de la base y el dashboard de control pero como no puedo pagar para que se vea en la web de manera publica porque me restringe la pagina hice uno rapido en google sheets con las metricas necesarias. 
+
+https://docs.google.com/spreadsheets/d/1BoAJrW-SGlWEUie8j5EN4c6mgeH7d8H16uOnYm4Pvbo/view?usp=sharing
+
+ACLARACION : En tiempo real se encuentran los interfaces de la base y el dashboard de control pero como no puedo pagar para que se vea en la web de manera publica porque me restringe la pagina hice uno rapido en google sheets con las metricas necesarias. De todos modos, en la documentacion se puede ver la imagen del dashboard y la base de datos. 
+
+URL Grabacion: 
+
+https://drive.google.com/file/d/1WXhex7Xlc48mMc272Utx2aPVK61mJyGj/view?usp=sharing
 
 Acaraciones del trabajo: 
 
